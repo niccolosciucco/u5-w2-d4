@@ -1,5 +1,6 @@
 package niccolosciucco.u5_w2_d4.authors.services;
 
+import com.cloudinary.Cloudinary;
 import niccolosciucco.u5_w2_d4.authors.dto.AuthorDTO;
 import niccolosciucco.u5_w2_d4.authors.entities.Author;
 import niccolosciucco.u5_w2_d4.authors.repositories.AuthorRepository;
@@ -9,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -16,9 +18,11 @@ import java.util.UUID;
 @Service
 public class AuthorService {
     private final AuthorRepository authorRepository;
+    private final Cloudinary cloudinary;
 
-    public AuthorService(AuthorRepository authorRepository) {
+    public AuthorService(AuthorRepository authorRepository, Cloudinary cloudinary) {
         this.authorRepository = authorRepository;
+        this.cloudinary = cloudinary;
     }
 
     public Author post(AuthorDTO authorDTO) {
@@ -64,5 +68,20 @@ public class AuthorService {
                 .orElseThrow(() -> new NotFound("Impossibile eliminare. Autore con id " + id + " non trovato."));
 
         this.authorRepository.delete(found);
+    }
+
+    public Author updateAvatar(UUID userId, MultipartFile file) {
+        Author found = this.authorRepository.findById(userId)
+                .orElseThrow(() -> new NotFound("Impossibile aggiornare l'avatar. Autore con id " + userId + " non trovato."));
+
+        try {
+            String url = (String) this.cloudinary.uploader().upload(file.getBytes(), com.cloudinary.utils.ObjectUtils.emptyMap()).get("secure_url");
+
+            found.setAvatar(url);
+            return this.authorRepository.save(found);
+
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Errore durante il caricamento del file su Cloudinary", e);
+        }
     }
 }
